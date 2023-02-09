@@ -1,13 +1,6 @@
 package com.example.sqlConnect.controllers;
 
 import javax.inject.Inject;
-
-import com.aerospike.client.AerospikeClient;
-//import com.aerospike.client.Bin;
-//import com.aerospike.client.Key;
-//import com.aerospike.client.policy.Policy;
-//import com.aerospike.client.policy.WritePolicy;
-//import com.aerospike.client.Record;
 import com.example.sqlConnect.services.IDataService;
 
 import io.vertx.core.Handler;
@@ -18,7 +11,6 @@ import io.vertx.reactivex.core.http.HttpServerResponse;
 import io.vertx.reactivex.ext.web.RoutingContext;
 
 public class DataController implements IDataController {
-    AerospikeClient client = new AerospikeClient("hostname", 3000);
 
     @Inject
     DataController() {
