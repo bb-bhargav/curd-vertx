@@ -4,6 +4,7 @@ import io.vertx.core.Handler;
 import io.vertx.reactivex.ext.web.RoutingContext;
 
 public interface IDataController {
+    Handler<RoutingContext> getDataFromDB();
     Handler<RoutingContext> getData();
     Handler<RoutingContext> getDataByID();
     Handler<RoutingContext> postData();

@@ -20,6 +20,20 @@ public class DataController implements IDataController {
     IDataService dataService;
 
     @Override
+    public Handler<RoutingContext> getDataFromDB() {
+
+        return routingContext -> {
+            HttpServerResponse httpServerResponse = routingContext.response();
+            httpServerResponse.putHeader("content-type", "application/json");
+            dataService.getDataFromDB().subscribe(
+                    res -> httpServerResponse.setStatusCode(200)
+                            .end(new JsonObject().put("message", res).toString()),
+                    err -> httpServerResponse.setStatusCode(500)
+                            .end(new JsonObject().put("message", "Error occurred").toString()));
+        };
+    }
+
+    @Override
     public Handler<RoutingContext> getData() {
 
         return routingContext -> {
@@ -59,12 +73,13 @@ public class DataController implements IDataController {
         return routingContext -> {
             HttpServerResponse httpServerResponse = routingContext.response();
             httpServerResponse.putHeader("content-type", "application/json");
-            dataService.updateData(routingContext.pathParam("id"), routingContext.body().asJsonObject()).subscribe(res -> {
-                httpServerResponse.setStatusCode(200).end(Json.encodePrettily(res));
-            }, err -> {
-                httpServerResponse.setStatusCode(500).end(new JsonObject().put("message",
-                        "Error occurred").toString());
-            });
+            dataService.updateData(routingContext.pathParam("id"), routingContext.body().asJsonObject())
+                    .subscribe(res -> {
+                        httpServerResponse.setStatusCode(200).end(Json.encodePrettily(res));
+                    }, err -> {
+                        httpServerResponse.setStatusCode(500).end(new JsonObject().put("message",
+                                "Error occurred").toString());
+                    });
         };
     }
 

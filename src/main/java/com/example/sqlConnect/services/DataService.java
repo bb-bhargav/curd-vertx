@@ -1,7 +1,6 @@
 package com.example.sqlConnect.services;
 
 import javax.inject.Inject;
-import com.example.sqlConnect.model.Data;
 import io.reactivex.Single;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -29,17 +28,14 @@ public class DataService implements IDataService {
     } catch (Throwable e) {
       System.out.println("Aerospike not connected");
     }
-
   }
 
   @Inject
   MySQLPool db;
 
-  public Single<JsonArray> getData() {
+  public Single<String> getDataFromDB() {
     return db.preparedQuery("SELECT * FROM test_data.employee_details").rxExecute().map(rows -> {
-
       Bin[] bins = new Bin[rows.size()];
-      JsonArray result = new JsonArray();
       Integer rowIndex = 0;
 
       for (Row row : rows) {
@@ -49,28 +45,30 @@ public class DataService implements IDataService {
 
       client.put(null, key, bins);
 
-      Record record = client.get(null, key);
-      record.bins.values().forEach(bin -> {
-        result.add(new JsonObject(bin.toString()));
-      });
-
-      return result;
+      return "Fetched DB and stored in cache";
     });
   }
 
-  public Single<JsonObject> getDataByID(String id) {
-    return isEmpWithIdExists(id).map(rows -> {
-      JsonObject result = new JsonObject();
-      if (rows.size() > 0) {
-        for (Row row : rows) {
-          result = JsonObject.mapFrom(new Data(row.getInteger("id"), row.getString("first_name"),
-              row.getString("last_name")));
-        }
-      } else {
-        result.put("message", "id: " + id + " not found");
-      }
-      return result;
+  public Single<JsonArray> getData() {
+    JsonArray result = new JsonArray();
+
+    Record record = client.get(null, key);
+    record.bins.values().forEach(bin -> {
+      result.add(new JsonObject(bin.toString()));
     });
+
+    return Single.just(result);
+  }
+
+  public Single<JsonObject> getDataByID(String id) {
+    Record record = client.get(null, key);
+    for (Object bin : record.bins.values()) {
+      JsonObject obj = new JsonObject(bin.toString());
+      if (obj.getString("id").equals(id)) {
+        return Single.just(obj);
+      }
+    }
+    return Single.just(new JsonObject().put("message", "id: " + id + " not found"));
   }
 
   public Single<JsonObject> postData(JsonObject bodyObject) {

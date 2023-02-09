@@ -23,6 +23,7 @@ public class DataRouter {
     public void setUpApi() {
         router.route().handler(BodyHandler.create());
 
+        router.get("/admin/employees").handler(dataController.getDataFromDB());
         router.get("/employees").handler(dataController.getData());
         router.get("/employee").handler(dataController.getDataByID());
         router.post("/employee").handler(dataController.postData());
