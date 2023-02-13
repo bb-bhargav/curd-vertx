@@ -1,6 +1,8 @@
 package com.example.sqlConnect.services;
 
 import javax.inject.Inject;
+
+import com.example.sqlConnect.model.Data;
 import io.reactivex.Single;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -13,62 +15,71 @@ import com.aerospike.client.AerospikeClient;
 import com.aerospike.client.Bin;
 import com.aerospike.client.Key;
 import com.aerospike.client.Record;
-import com.aerospike.client.policy.ClientPolicy;
+import com.aerospike.client.policy.WritePolicy;
 
 public class DataService implements IDataService {
-  private AerospikeClient client;
-  private Key key;
 
   @Inject
   DataService() {
-    try {
-      ClientPolicy policy = new ClientPolicy();
-      client = new AerospikeClient(policy, "localhost", 3000);
-      key = new Key("test", "demo", "key1");
-    } catch (Throwable e) {
-      System.out.println("Aerospike not connected");
-    }
   }
 
   @Inject
   MySQLPool db;
 
+  @Inject
+  AerospikeClient client;
+
   public Single<String> getDataFromDB() {
+    WritePolicy writePolicy = new WritePolicy();
+    writePolicy.expiration = 15;
+
     return db.preparedQuery("SELECT * FROM test_data.employee_details").rxExecute().map(rows -> {
-      Bin[] bins = new Bin[rows.size()];
-      Integer rowIndex = 0;
-
       for (Row row : rows) {
-        bins[rowIndex] = new Bin(String.valueOf(rowIndex), row.toJson().toString());
-        rowIndex++;
+        Key key = new Key("test", "employeeDetails", String.valueOf(row.getInteger("id")));
+        client.put(writePolicy, key, new Bin("value", row.toJson().toString()));
       }
-
-      client.put(null, key, bins);
-
       return "Fetched DB and stored in cache";
     });
   }
 
   public Single<JsonArray> getData() {
-    JsonArray result = new JsonArray();
+    JsonArray data = getFromCache();
+    if (data.isEmpty()) {
+      System.out.println("No cache data found, fetching from DB...");
+      return getDataFromDB().map(res -> {
+        return getFromCache();
+      });
+    }
+    return Single.just(data);
+  }
 
-    Record record = client.get(null, key);
-    record.bins.values().forEach(bin -> {
-      result.add(new JsonObject(bin.toString()));
+  private JsonArray getFromCache() {
+    JsonArray data = new JsonArray();
+    client.scanAll(null, "test", "employeeDetails", (key, record) -> {
+      data.add(new JsonObject(record.bins.get("value").toString()));
     });
-
-    return Single.just(result);
+    return data;
   }
 
   public Single<JsonObject> getDataByID(String id) {
+    Key key = new Key("test", "employeeDetails", id);
     Record record = client.get(null, key);
-    for (Object bin : record.bins.values()) {
-      JsonObject obj = new JsonObject(bin.toString());
-      if (obj.getString("id").equals(id)) {
-        return Single.just(obj);
-      }
+    if (record == null) {
+      System.out.println("No cache data found, fetching from DB...");
+      return isEmpWithIdExists(id).map(rows -> {
+        JsonObject result = new JsonObject();
+        if (rows.size() > 0) {
+          for (Row row : rows) {
+            result = JsonObject.mapFrom(new Data(row.getInteger("id"), row.getString("first_name"), row.getString("last_name")));
+          }
+        } else {
+          result.put("message", "id: " + id + " not found");
+        }
+        return result;
+      });
+    } else {
+      return Single.just(new JsonObject(record.bins.get("value").toString()));
     }
-    return Single.just(new JsonObject().put("message", "id: " + id + " not found"));
   }
 
   public Single<JsonObject> postData(JsonObject bodyObject) {

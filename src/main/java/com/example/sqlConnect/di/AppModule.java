@@ -1,5 +1,8 @@
 package com.example.sqlConnect.di;
 
+import com.aerospike.client.AerospikeClient;
+import com.aerospike.client.policy.ClientPolicy;
+import com.aerospike.client.policy.WritePolicy;
 import com.example.sqlConnect.config.config;
 import com.example.sqlConnect.controllers.DataController;
 import com.example.sqlConnect.controllers.IDataController;
@@ -18,6 +21,13 @@ public interface AppModule {
     @Provides
     static MySQLPool mySQLPool(Vertx vertx) {
         return config.getMySQLClient(vertx);
+    }
+
+    @Provides
+    static AerospikeClient aerospikeConnect() {
+        ClientPolicy policy = new ClientPolicy();
+        AerospikeClient client = new AerospikeClient(policy, "localhost", 3000);
+        return client;
     }
 
     @Binds
